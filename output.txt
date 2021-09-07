@@ -44,3 +44,141 @@ Responses should have the following structures.
 
 
 
+//ckt42pene00001gtc8me2kztx
+http://localhost:3000/api/users/ckt42pene00001gtc8me2kztx/logs?from=2019-09-09&to=2021-09-09
+
+/*-------------------------------------------------------------------------------*/
+//   Get method to add exercise related data of particular user
+//   http://localhost:3000/api/users/:id/logs?[from][&to][&limit]
+//    [ ] = optional
+//    from, to = dates (yyyy-mm-dd); limit = number
+//    http://localhost:3000/api/users/5fb5853f734231456ccb3b05/logs
+//    req.params.id:<id>               //User's id
+//    req.query.from:<fromDate>        // yyyy-mm-dd
+//    req.query.to:<toDate>            // yyyy-mm-dd
+//    req.query.limit:<limit>          // should be Integer 
+/*    Response should be like
+{
+  username: "fcc_test",
+  count: 1,
+  id: "5fb5853f734231456ccb3b05",
+  log: [{
+    description: "test",
+    duration: 60,
+    date: "Mon Jan 01 1990",
+  }]
+}
+*/
+app.get("/api/users/:id/logs", (req, res) => {
+  let userId=req.params.id;
+  let fromD=req.query.from;
+  let to=req.query.to;
+  let limit=req.query.limit;
+
+prisma.user.findUnique({
+  where: {
+    id: userId,
+  },
+  include: {
+    exercises: {
+      orderBy: {
+        date: 'asc',
+      },
+  },
+}})
+.then(data=>{
+  if(!data){
+    return res.send({
+      error:"User with this id does not exist"})
+  }
+    
+    var exercises = data.exercises;
+    var log = exercises.map(item=>{
+            return{description:item.description, 
+            duration:+item.duration,
+            date:item.date.toDateString()
+     }
+   });
+    if(fromD) {
+    var fromDate = Date.parse(new Date(fromD).toUTCString());
+    log = log.filter(item => 
+      Date.parse(new Date(item.date).toUTCString()) >= fromDate
+              );
+    }
+    if(to) {
+    var toDate = Date.parse(new Date(to).toUTCString());
+    log = log.filter(item => 
+      Date.parse(new Date(item.date).toUTCString()) <= toDate);
+    }
+    if(limit) {
+    log = log.slice(0, +limit);
+    }
+    res.send({
+            username:data.username, 
+            count:log.length, 
+            id:data.id, 
+            log:log
+          })
+})
+.catch(err=>console.log(err));
+
+});//end of function
+
+
+
+//ckt42pene00001gtc8me2kztx
+http://localhost:3000/api/users/ckt42pene00001gtc8me2kztx/logs?from=2019-09-09&to=2021-09-09
+
+
+
+/*-------------------------------------------------------------------------------*/
+//   Get method to add exercise related data of particular user
+//   http://localhost:3000/api/users/:id/logs?[from][&to][&limit]
+//    [ ] = optional
+//    from, to = dates (yyyy-mm-dd); limit = number
+//    http://localhost:3000/api/users/5fb5853f734231456ccb3b05/logs
+//    req.params.id:<id>               //User's id
+//    req.query.from:<fromDate>        // yyyy-mm-dd
+//    req.query.to:<toDate>            // yyyy-mm-dd
+//    req.query.limit:<limit>          // should be Integer 
+/*    Response should be like
+{
+  username: "fcc_test",
+  count: 1,
+  id: "5fb5853f734231456ccb3b05",
+  log: [{
+    description: "test",
+    duration: 60,
+    date: "Mon Jan 01 1990",
+  }]
+}
+*/
+app.get("/api/users/:id/logs", async(req, res) => {
+  let userId=req.params.id;
+  let fromD=req.query.from?new Date(req.query.from):new Date(0);
+  let to=req.query.to?new Date(req.query.to):new Date(Date.parse(new Date()) + 8640000*30*12);
+  let limit=+req.query.limit;
+  const result1=await prisma.$queryRaw('SELECT username FROM "User" WHERE ("id" = $1)',userId);
+  const result = await prisma.$queryRaw(
+    'SELECT description,duration,date FROM "Exercise" WHERE ("userId" = $1 AND "date" >= $2 AND "date"<=$3) ORDER BY "date" DESC LIMIT $4', // PostgreSQL variables, represented by $1 and $2
+    userId,
+    fromD,
+    to,
+    limit
+    )
+
+    var log=result.map(item=>{
+      return{description:item.description, 
+            duration:+item.duration,
+            //date:new Date(Date.parse(item.date)).toDateString()
+            date:new Date(item.date).toDateString()
+             }
+
+    });
+  //  console.log(result);
+    res.send({    username:result1[0].username,
+                  count:result.length, 
+                  id:userId, 
+                  log:log
+                });
+});//end of function
